@@ -1,0 +1,18 @@
+0.0.1 (30-10-2013) "Hello World"
+-First build
+-Project set-up and organization
+-Prepared templates, to speed-up future screen setup
+-Added example main menu, for early testing purposes
+-Dialogue screen WIP
+-Lie/Truth/Neutral dialogue system implementation process started
+
+0.0.2 (02-11-2013)
+-Multiple changes to dialogue system
+-Dialogue system implemented
+
+0.0.3 (03-11-2013) "Call me a liar"
+-Multiple fixes to dialogue system
+-Overworld implementation started
+
+0.0.4 (05-11-2013) "Echoes"
+-Overworld basics implemented
