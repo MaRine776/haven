@@ -16,6 +16,7 @@ local option1textA, option1textB, option1textC, option2textA, option2textB, opti
 
 local liePressed, truthPressed
 
+-- internal, cleans list of topics
 local function flushTopics()
 	option1textA.text=""
 	option1textB.text=""
@@ -36,6 +37,7 @@ local function flushTopics()
 	print("Topics cleared")
 end
 
+-- internal, cleans response text
 local function flushResponse()
 	responseTextA.text=""
 	responseTextB.text=""
@@ -46,6 +48,7 @@ local function flushResponse()
 	responseTextG.text=""
 	end
 
+-- used to add a new response depended on player's own choice in updateResponse()
 local function addResponse(textA, textB, textC, textD, textE, textF, textG)
 
 	if textA ~= nil then
@@ -79,6 +82,7 @@ local function addResponse(textA, textB, textC, textD, textE, textF, textG)
 	print("Response updated to: " .. tostring(textA) .. tostring(textB) .. tostring(textC) .. tostring(textD) .. tostring(textE) .. tostring(textF) .. tostring(textG))
 end
 
+-- used to add a new topic in updateTopics(); option is int = 1~5, telling on witch position from top it is displayed
 local function addTopic(option, textA, textB, textC)
 
 	if option == 1 then
@@ -157,6 +161,7 @@ local function addTopic(option, textA, textB, textC)
 
 end
 
+-- updates response due to current value of choice, see dialog construction for help (WIP)
 local function updateResponse()
 	flushResponse()
 	--------------------------------------------------------------------------------
@@ -186,6 +191,7 @@ local function updateResponse()
 
 end
 
+-- updates topics due to current value of choice, see dialog construction for help (WIP)
 local function updateTopics()
 
 	flushTopics()
@@ -219,6 +225,7 @@ local function updateTopics()
 
 end
 
+-- logic used to change choice due to current choice, option, truth and lie; consult dialog construction before modification (WIP)
 local function topicChosen(option)
 
 	--------------------------------------------------------------------------------
@@ -258,6 +265,7 @@ local function topicChosen(option)
 	updateTopics()
 end
 
+-- internal listener for lie button
 liePressed = function ()
 
 	print("Lie pressed")
@@ -298,6 +306,7 @@ liePressed = function ()
 
 end
 
+-- internal listener for truth button
 truthPressed = function ()
 
 	print("Truth pressed")
@@ -337,6 +346,12 @@ truthPressed = function ()
 	updateTopics()
 
 end
+
+---------------------------------------------------------------------------------
+--
+-- internal associate functions
+--
+---------------------------------------------------------------------------------
 
 local function topic1Chosen()
 	topicChosen(1)
@@ -422,13 +437,17 @@ function scene:enterScene( event )
 
 	-----------------------------------------------------------------------------
 	
-	--TODO Find a way to load NPC data
+	--TODO Load NPC data from global _DATA, for every real dialogue
 	choice=0
 
 	lie=false
 	truth=false
 	done=false
 
+	-- currently bcg filled white
+	-- TODO find a way to display world screen in bcg, or draw a dialogue portrait for every NPC
+	-- could be done by combination of backgrounds representing tilesets and some NPC portraits
+	-- that would be awesomesauce to pull it off btw
 	whiteBcg = display.newRect( farBackground, 0, 0, 1280, 800 )
 
 	bcg = display.newImage(farBackground, "assets/graphics/dialogue/dialogueHUD.png", system.ResourceDirectory, 0, 0)

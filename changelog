@@ -16,3 +16,9 @@
 
 0.0.4 (05-11-2013) "Echoes"
 -Overworld basics implemented
+
+0.0.5 (13-11-2013)
+-Basic collision done
+-Pad rewritten (now works in an "analog" way)
+-Updates in response to "enter frame" event
+-Miscellaneous fixes and changes

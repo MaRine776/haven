@@ -8,14 +8,22 @@ local storyboard = require( "storyboard" )
 local scene = storyboard.newScene()
 
 local playX, playY, dx, dy
-local moveTimer
+local moveTerrainTimer, drawTilesTimer
 local pad
+local prevTime
+local moving
+local direction 
+
+-- TODO read player data from global _DATA (done?)
+local player = {}
+setmetatable(player, {__index = _DATA.player})
 
 local map = {}
 setmetatable(map, {__index = nil})
 
 local tile = {}
 
+-- method for tile object, to update coordinates
 function tile:coords(x,y)
 	self.x=x
 	self.y=y
@@ -23,12 +31,14 @@ end
 
 local tilemap
 
+-- constructor for tile class (includes tileset declaration per se, eg. graphics chosen;
+-- could be changed or moved outside constructor
 function tile:new(row, col)
 	local object ={}
 	setmetatable(object, { __index = tile })
 	local type = tilemap[row][col]
 	
-	if type == 1 then
+	if type == 1 or type == -1 then
 		object.path="assets/graphics/tiles/tileGrassB.jpg"
 		
 	else
@@ -36,13 +46,19 @@ function tile:new(row, col)
 		
 	end
 	
-	object:coords((col-1)*50-playX,(row-1)*50-playY)
+	if type < 1 then
+		object.border = true
+		
+	end
+	
+	object:coords((col-1)*_TILESIZE-playX,(row-1)*_TILESIZE-playY)
 	object.visible=false
 	object.image=nil
 	
 	return object
 end
 
+-- displayed map initialization, fills table with new anonymus tile objects
 local function initMap()
 	print("Map initializing...")
 	
@@ -58,7 +74,9 @@ local function initMap()
 	print("Map initialized")
 end
 
-local function drawTiles()
+-- draws tiles to screen, used also by redrawTiles()
+local function drawTiles(dt)
+
 	for i = 1, #map, 1  do
 			
 		if map[i].image then
@@ -67,25 +85,66 @@ local function drawTiles()
 				
 		end
 			
-		map[i]:coords(map[i].x-dx,map[i].y-dy)
+		map[i].visable=false
+		map[i]:coords(map[i].x-dx*dt,map[i].y-dy*dt)
 			
-		if map[i].x>-100 and map[i].x<1400 and map[i].y>-100 and map[i].y<900 then
+		if map[i].x>-100 and map[i].x<display.viewableContentWidth+100 and map[i].y>-100 and map[i].y<display.viewableContentHeight+100 then
 			map[i].image=display.newImage(farBackground, map[i].path, map[i].x*display.contentScaleX, map[i].y*display.contentScaleY, true)
 			map[i].image:scale(display.contentScaleX, display.contentScaleY)
 			
+			map[i].visable=true
+
 		end
 	end
 	
 	print("Map redrawn, scaleX = " .. display.contentScaleX .. ", scaleY = " .. display.contentScaleY)
 end
 
-local function redrawTiles()
-	if dx~=0 or dy~=0 then
-		drawTiles()
-		
+-- checks for collisions and stops all movement involved
+local function checkCollision()
+	for i = 1, #map, 1  do
+		if map[i].border and map[i].visable then
+			local midX=(map[i].x+_TILESIZE*0.5)*display.contentScaleX
+			local midY=(map[i].y+_TILESIZE*0.5)*display.contentScaleY
+			local dist=math.sqrt(math.pow(midX-640,2)+math.pow(midY-400,2))
+			
+			if dist<=112 then
+				print("Collided on x=" .. midX .. " y=" .. midY)
+
+				if math.abs(midX-640)<math.abs(midY-400) then
+					if dy~=0 then
+						if math.abs(midY-400) < math.abs(midY-400+dy) then
+							dy=0
+							
+						end
+					end
+				else
+					if dx~=0 then
+						if math.abs(midX-640) < math.abs(midX-640+dx) then
+							dx=0
+							
+						end
+					end
+				end
+			end
+		end
 	end
 end
 
+-- redraws tiles; distinction made to preserve processing time
+local function enterFrame( event )
+	local curTime = event.time
+	local dt = curTime - prevTime
+	prevTime = curTime
+
+	if dx~=0 or dy~=0 then
+		checkCollision()
+		drawTiles(dt)
+	
+	end
+end
+
+-- clears map
 local function disposeTiles()
 	for i = 1, #map, 1  do
 		if map[i].image then
@@ -94,47 +153,6 @@ local function disposeTiles()
 				
 		end
 	end
-end
-
-local function updateV(event)
-		if event.x>1024 and event.x<1280 and event.y>272 and event.y<536 then
-			if event.x>1024 and event.x<1088 then
-				dx=-2*_SPEED
-				
-			elseif event.x>=1088 and event.x<1152 then
-				dx=-_SPEED
-				
-			elseif event.x>=1152 and event.x<1216 then
-				dx=_SPEED
-				
-			elseif event.x>=1216 and event.x<1280 then
-				dx=2*_SPEED
-	
-			end
-			if event.y>272 and event.y<336 then
-				dy=-2*_SPEED
-				
-			elseif event.y>=336 and event.y<400 then
-				dy=-_SPEED
-				
-			elseif event.y>=400 and event.y<464 then
-				dy=_SPEED
-				
-			elseif event.y>=464 and event.y<536 then
-				dy=2*_SPEED
-				
-			end
-			if dx~=0 and dy~=0 then
-				dx=dx*0.71
-				dy=dy*0.71
-				
-			end
-			
-		else
-			dx=0
-			dy=0
-		
-		end
 end
 
 ----------------------------------------------------------------------------------
@@ -161,21 +179,27 @@ function scene:createScene( event )
 	--	Example use-case: Restore 'group' from previously saved state.
 	
 	-----------------------------------------------------------------------------
+	prevTime=system.getTimer()
 	playX=0
 	playY=0
 	dx=0
 	dy=0
-	tilemap = { {1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-				{1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-				{1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-				{1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-				{1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-				{1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-				{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-				{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-				{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1} }
+	tilemap = { {2,2,1,1,1,2,1,1,1,1,2,2,2,2,2,1,1,1,1,2,2,2,2,2,1,1,2},
+				{2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2},
+				{2,2,0,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,2},
+				{2,2,0,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,2},
+				{2,0,0,1,2,2,2,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0,2},
+				{2,0,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,0,2},
+				{2,0,1,1,1,2,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,0,2},
+				{2,0,1,1,1,2,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,1,1,2,-1,2},
+				{2,0,1,1,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,1,1,1,1,0,2},
+				{2,0,0,0,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,0,2},
+				{2,2,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,2},
+				{2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+				{2,2,2,2,2,2,2,1,1,1,2,2,2,2,1,1,1,1,1,2,1,2,2,2,1,1,2} }
 	
 	initMap()
+	direction = "down"
 	
 end
 
@@ -184,39 +208,58 @@ end
 function scene:enterScene( event )
 	print("Scene viewed: exampleLevel")
 	local group = self.view
-	
 	-----------------------------------------------------------------------------
 		
 	--	TODO INSERT code here (e.g. start timers, load audio, start listeners, etc.)
 	
 	-----------------------------------------------------------------------------
 
-	drawTiles()
-	moveTimer = timer.performWithDelay( 10, redrawTiles, 0)
+	drawTiles(1)
+	local pSx=32*display.contentScaleX
+	local pSy=32*display.contentScaleY
 	
-	pad = display.newImage(nearBackground, "assets/graphics/hud/pad.png", 1024, 272)
+	player.image = display.newImage(nearBackground, "assets/graphics/sprites/player.png", 640-pSx, 400-pSy, true)
+	player.image:scale(display.contentScaleX, display.contentScaleY)
+	
+	pad = display.newImage(foreground, "assets/graphics/hud/pad2.png", 896, 144)
 	--pad.numTouches=0
 	function pad:touch(event)
-		
-		if event.phase=="began" then
-			print("Event " .. event.name .. " begun")
-			updateV(event)
-			
-		elseif event.phase=="moved" then
-			print("Event " .. event.name .. " moved")
-			if event.x>1028 and event.x<1276 and event.y>274 and event.y<514 then
-				updateV(event)
-			else
-				print("Event " .. event.name .. " moved outside controller")
+		local dist=math.sqrt(math.pow(event.x-1152,2)+math.pow(event.y-400,2))
+		print("Event " .. event.name .. " phase: " .. event.phase .. " distance: " .. dist)
+
+		if dist<=128 and (event.phase=="began" or event.phase=="moved" ) then
+			if dist<25 then
 				dx=0
 				dy=0
-			
+				moving=false
+				
+			else
+				local deltaX, deltaY
+				deltaX=(event.x-1152)
+				deltaY=(event.y-400)
+				if math.abs(deltaX) <= 17 then
+					dx=0
+					
+				else
+					dx=2*0.008*deltaX*_SPEED
+					moving=true
+					
+				end
+				if math.abs(deltaY) <= 17 then
+					dy=0
+					
+				else
+					dy=2*0.008*deltaY*_SPEED
+					moving=true
+					
+				end
+				print("Event resolved: deltaX=" .. deltaX .. " deltaY=" .. deltaY)
 			end
 		
-		elseif event.phase=="ended" or event.phase=="cancelled" then
-			print("Event " .. event.name .. " ended")
+		elseif dist>128 or event.phase=="ended" or event.phase=="cancelled" then
 			dx=0
 			dy=0
+			moving=false
 		
 		end		
 	end
@@ -236,11 +279,13 @@ function scene:exitScene( event )
 	
 	-----------------------------------------------------------------------------
 	
+	player.image:removeSelf()
+	player.image=nil
+	
 	pad:removeSelf()
 	pad=nil
 	
-	disposeTiles()
-	
+	physics.stop()
 	
 end
 
@@ -256,6 +301,8 @@ function scene:destroyScene( event )
 	
 	-----------------------------------------------------------------------------
 	
+	disposeTiles()
+	
 	map=nil
 	playX=nil
  	playY=nil
@@ -266,6 +313,7 @@ function scene:destroyScene( event )
 	
 end
 
+Runtime:addEventListener( "enterFrame", enterFrame )
 
 ---------------------------------------------------------------------------------
 -- END OF YOUR IMPLEMENTATION
